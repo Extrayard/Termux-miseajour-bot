@@ -1,0 +1,450 @@
+
+
+
+#!/data/data/com.termux/files/usr/bin/bash
+
+LOGFILE=~/install_log.txt
+ACTIVITY_LOG=~/activity_log.txt
+
+# Codes de couleur
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # Pas de couleur
+
+# Langue par défaut
+LANGUAGE="fr"
+
+# Fonction pour changer la langue
+change_language() {
+    echo "Choisissez votre langue :"
+    echo "1. Français"
+    echo "2. English"
+    read -p "Sélectionnez une langue (1/2) : " lang_option
+    if [ "$lang_option" == "2" ]; then
+        LANGUAGE="en"
+    else
+        LANGUAGE="fr"
+    fi
+}
+
+# Fonctions utilitaires
+check_disk_space() {
+    local required_space=2000000  # 2 Go en Ko
+    local available_space=$(df /data/data/com.termux/files | awk 'NR==2 {print $4}')
+    if [ "$available_space" -lt "$required_space" ]; then
+        echo -e "${RED}Erreur : Pas assez d'espace disque disponible. Veuillez libérer de l'espace.${NC}"
+        exit 1
+    fi
+}
+
+# Fonction pour écrire dans le journal d'activité
+log_activity() {
+    echo "$(date): $1" >> "$ACTIVITY_LOG"
+}
+
+# Fonction pour afficher le menu principal
+display_main_menu() {
+    echo -e "${YELLOW}============================================${NC}"
+    echo -e "${GREEN}Assistant d'Installation de Paquets 🎈${NC}"
+    echo -e "${YELLOW}============================================${NC}"
+    if [ "$LANGUAGE" == "fr" ]; then
+        echo "1. Installer un paquet"
+        echo "2. Mettre à jour les paquets"
+        echo "3. Désinstaller un paquet"
+        echo "4. Rechercher un paquet"
+        echo "5. Afficher les informations sur un paquet"
+        echo "6. Réinstaller un paquet"
+        echo "7. Aide"
+        echo "8. Sauvegarder la liste des paquets installés"
+        echo "9. Mettre à jour la liste des paquets"
+        echo "10. Afficher les paquets installés"
+        echo "11. Nettoyer les paquets inutilisés"
+        echo "12. Restaurer la liste des paquets à partir d'une sauvegarde"
+        echo "13. Créer un répertoire de travail"
+        echo "14. Consulter la documentation pour l'installation"
+        echo "15. Vérifier l'état d'un paquet"
+        echo "16. Expliquer une fonctionnalité"
+        echo "17. Exécuter un script d'installation personnalisé"
+        echo "18. Afficher l'historique des installations"
+        echo "19. Mettre à jour le bot"
+        echo "20. Sauvegarder la configuration d'un paquet"
+        echo "21. Restaurer la configuration d'un paquet"
+        echo "22. Afficher le journal d'activité"
+        echo "23. Changer la langue"
+        echo "24. Afficher tous les paquets installables"
+        echo "25. Vérifier les mises à jour de sécurité"
+        echo "26. Quitter"
+    else
+        echo "1. Install a package"
+        echo "2. Update packages"
+        echo "3. Uninstall a package"
+        echo "4. Search for a package"
+        echo "5. Show package information"
+        echo "6. Reinstall a package"
+        echo "7. Help"
+        echo "8. Save installed packages list"
+        echo "9. Update package list"
+        echo "10. Show installed packages"
+        echo "11. Clean unused packages"
+        echo "12. Restore packages from a backup"
+        echo "13. Create a working directory"
+        echo "14. Check installation documentation"
+        echo "15. Check package status"
+        echo "16. Explain a feature"
+        echo "17. Run a custom installation script"
+        echo "18. Show installation history"
+        echo "19. Update the bot"
+        echo "20. Save package configuration"
+        echo "21. Restore package configuration"
+        echo "22. Show activity log"
+        echo "23. Change language"
+        echo "24. Show all installable packages"
+        echo "25. Check security updates"
+        echo "26. Quit"
+    fi
+}
+
+# Fonction pour afficher un message d'aide
+show_help() {
+    if [ "$LANGUAGE" == "fr" ]; then
+        echo "Aide :"
+        echo "1. Installer un paquet : Installe un ou plusieurs paquets disponibles."
+        echo "2. Mettre à jour les paquets : Met à jour tous les paquets installés pour avoir les dernières versions."
+        echo "3. Désinstaller un paquet : Supprime un paquet installé de votre système."
+        echo "4. Rechercher un paquet : Affiche les paquets disponibles correspondant à votre recherche."
+        echo "5. Afficher les informations sur un paquet : Donne des détails sur un paquet spécifique."
+        echo "6. Réinstaller un paquet : Réinstalle un paquet déjà installé."
+        echo "7. Créer un répertoire de travail : Crée un répertoire pour gérer vos installations et fichiers de log."
+        echo "8. Afficher les paquets installés : Montre la liste des paquets installés sur votre système."
+        echo "9. Nettoyer les paquets inutilisés : Supprime les paquets qui ne sont plus nécessaires."
+        echo "10. Restaurer la liste des paquets : Restaure les paquets à partir d'un fichier de sauvegarde."
+    else
+        echo "Help:"
+        echo "1. Install a package: Installs one or more available packages."
+        echo "2. Update packages: Updates all installed packages to their latest versions."
+        echo "3. Uninstall a package: Removes an installed package from your system."
+        echo "4. Search for a package: Displays available packages matching your search."
+        echo "5. Show package information: Provides details about a specific package."
+        echo "6. Reinstall a package: Reinstalls an already installed package."
+        echo "7. Create a working directory: Creates a directory to manage your installations and log files."
+        echo "8. Show installed packages: Displays the list of installed packages on your system."
+        echo "9. Clean unused packages: Removes packages that are no longer needed."
+        echo "10. Restore packages: Restores packages from a backup file."
+    fi
+}
+
+# Fonction pour vérifier les mises à jour et envoyer des notifications
+check_for_updates() {
+    echo -e "${YELLOW}Vérification des mises à jour disponibles...${NC}"
+    if pkg update; then
+        echo -e "${GREEN}Mise à jour réussie.${NC}"
+        termux-notification --title "Mise à jour" --content "Les paquets ont été mis à jour avec succès." --priority high
+    else
+        echo -e "${RED}Erreur lors de la mise à jour des paquets.${NC}"
+    fi
+}
+
+# Fonction pour vérifier les mises à jour de sécurité
+check_security_updates() {
+    echo -e "${YELLOW}Vérification des mises à jour de sécurité...${NC}"
+    if apt-get upgrade --just-print | grep -q "security"; then
+        echo -e "${GREEN}Des mises à jour de sécurité sont disponibles.${NC}"
+        termux-notification --title "Mises à jour de sécurité" --content "Des mises à jour de sécurité sont disponibles." --priority high
+    else
+        echo -e "${GREEN}Aucune mise à jour de sécurité disponible.${NC}"
+    fi
+}
+
+# Fonction pour suggérer des paquets populaires
+suggest_packages() {
+    echo -e "${YELLOW}Suggestions de paquets populaires :${NC}"
+    echo "1. git"
+    echo "2. python"
+    echo "3. nodejs"
+    echo "4. vim"
+    echo "5. htop"
+}
+
+# Fonction pour afficher tous les paquets installables
+display_all_packages() {
+    echo -e "${YELLOW}Liste de tous les paquets installables :${NC}"
+    pkg list-all
+}
+
+# Fonction pour sauvegarder la configuration d'un paquet
+save_package_configuration() {
+    read -p "Entrez le nom du paquet dont vous souhaitez sauvegarder la configuration : " package
+    cp -r ~/.config/"$package" ~/backup_config_"$package"
+    echo "Configuration de $package sauvegardée dans ~/backup_config_$package."
+    log_activity "Configuration de $package sauvegardée."
+}
+
+# Fonction pour restaurer la configuration d'un paquet
+restore_package_configuration() {
+    read -p "Entrez le nom du paquet dont vous souhaitez restaurer la configuration : " package
+    cp -r ~/backup_config_"$package" ~/.config/
+    echo "Configuration de $package restaurée."
+    log_activity "Configuration de $package restaurée."
+}
+
+# Fonction pour exécuter un script d'installation personnalisé
+run_custom_script() {
+    read -p "Entrez le chemin du fichier de script à exécuter : " script_file
+    if [ -f "$script_file" ]; then
+        bash "$script_file"
+    else
+        echo "Fichier de script introuvable."
+    fi
+}
+
+# Fonction pour afficher l'historique des modifications
+display_modification_history() {
+    echo "Historique des modifications :"
+    cat "$ACTIVITY_LOG"
+}
+
+echo -e "${BLUE}============================================${NC}"
+echo -e "${GREEN}Bienvenue dans votre assistant d'installation${NC}"
+echo -e "${GREEN}de paquets sur Termux! 🚀${NC}"
+echo -e "${BLUE}============================================${NC}"
+
+# Changer la langue si nécessaire
+change_language
+
+while true; do
+    display_main_menu
+    read -p "Choisissez une option : " option
+
+    case $option in
+        1)
+            read -p "Entrez les noms des paquets à installer (séparés par des espaces) : " packages
+            check_disk_space
+            for package in $packages; do
+                read -p "Êtes-vous sûr de vouloir installer $package ? (y/n) " confirm
+                if [ "$confirm" == "y" ]; then
+                    echo -e "${YELLOW}Installation de $package...${NC}"
+                    if pkg install "$package" -y; then
+                        echo "$package a été installé avec succès."
+                        echo "$(date): Installation de $package" >> "$LOGFILE"
+                        log_activity "Installation réussie de $package."
+                        termux-notification --title "Installation réussie" --content "$package a été installé avec succès." --priority high
+                        suggest_packages  # Suggérer des paquets après installation
+                    else
+                        echo "Erreur lors de l'installation de $package." | tee -a error_log.txt
+                        log_activity "Erreur lors de l'installation de $package."
+                        termux-notification --title "Erreur d'installation" --content "Erreur lors de l'installation de $package." --priority high
+                        read -p "Voulez-vous essayer de réinstaller $package ? (y/n) " retry
+                        if [ "$retry" == "y" ]; then
+                            pkg install "$package" -y
+                        fi
+                    fi
+                else
+                    echo "Installation de $package annulée."
+                fi
+            done
+            ;;
+        2)
+            check_for_updates  # Vérifier les mises à jour
+            ;;
+        3)
+            read -p "Entrez le nom du paquet à désinstaller : " package
+            if pkg uninstall "$package" -y; then
+                echo "$package a été désinstallé avec succès."
+                echo "$(date): Désinstallation de $package" >> "$LOGFILE"
+                log_activity "Désinstallation réussie de $package."
+                termux-notification --title "Désinstallation réussie" --content "$package a été désinstallé avec succès." --priority high
+            else
+                echo "Erreur lors de la désinstallation de $package." | tee -a error_log.txt
+                log_activity "Erreur lors de la désinstallation de $package."
+                termux-notification --title "Erreur de désinstallation" --content "Erreur lors de la désinstallation de $package." --priority high
+            fi
+            ;;
+        4)
+            read -p "Entrez le nom du paquet à rechercher : " search_term
+            pkg search "$search_term"
+            ;;
+        5)
+            read -p "Entrez le nom du paquet pour voir les informations : " package
+            pkg show "$package"
+            ;;
+        6)
+            read -p "Entrez le nom du paquet à réinstaller : " package
+            if pkg reinstall "$package" -y; then
+                echo "$package a été réinstallé avec succès."
+                echo "$(date): Réinstallation de $package" >> "$LOGFILE"
+                log_activity "Réinstallation réussie de $package."
+            else
+                echo "Erreur lors de la réinstallation de $package." | tee -a error_log.txt
+                log_activity "Erreur lors de la réinstallation de $package."
+            fi
+            ;;
+        7)
+            show_help
+            ;;
+        8)
+            echo "Sauvegarde de la liste des paquets installés..."
+            dpkg --get-selections > ~/installed_packages.txt
+            echo "Liste des paquets sauvegardée dans ~/installed_packages.txt"
+            log_activity "Liste des paquets installés sauvegardée."
+            ;;
+        9)
+            echo "Mise à jour de la liste des paquets..."
+            pkg update
+            echo "Liste des paquets mise à jour."
+            log_activity "Liste des paquets mise à jour."
+            ;;
+        10)
+            echo "Paquets installés :"
+            dpkg --get-selections | grep -v deinstall
+            ;;
+        11)
+            echo "Nettoyage des paquets inutilisés..."
+            pkg autoremove -y
+            log_activity "Nettoyage des paquets inutilisés effectué."
+            ;;
+        12)
+            read -p "Entrez le chemin du fichier de sauvegarde : " backup_file
+            xargs -a "$backup_file" pkg install -y
+            echo "Restoration complète."
+            log_activity "Restoration des paquets à partir du fichier de sauvegarde."
+            ;;
+        13)
+            read -p "Entrez le chemin du répertoire à créer : " dir_path
+            mkdir -p "$dir_path"
+            echo "Répertoire $dir_path créé avec succès."
+            cd "$dir_path" || { echo "Erreur : Impossible de changer de répertoire."; exit 1; }
+            touch error_log.txt install_log.txt
+            echo "Fichiers de log créés : error_log.txt et install_log.txt."
+            log_activity "Répertoire de travail créé à $dir_path."
+            ;;
+        14)
+            echo "Consulter les documents d'aide pour l'installation :"
+            echo "1. Documentation officielle de Termux : https://wiki.termux.com/wiki/Main_Page"
+            echo "2. Forum de la communauté Termux : https://termux.com/community"
+            echo "3. Stack Overflow : https://stackoverflow.com/questions/tagged/termux"
+            echo "4. GitHub de Termux : https://github.com/termux/termux-packages"
+            echo "5. Recherche Google : https://www.google.com/search?q=termux+installation+issues"
+            read -p "Souhaitez-vous ouvrir l'une de ces ressources dans un navigateur ? (y/n) " open_browser
+            if [ "$open_browser" == "y" ]; then
+                termux-open-url "https://wiki.termux.com/wiki/Main_Page"
+            fi
+            ;;
+        15)
+            read -p "Entrez le nom du paquet à vérifier : " package
+            if dpkg -l | grep -q "^ii  $package"; then
+                echo "$package est installé."
+            else
+                echo "$package n'est pas installé."
+            fi
+            ;;
+        16)
+            echo "Choisissez une fonctionnalité à expliquer :"
+            echo "1. Installer un paquet"
+            echo "2. Mettre à jour les paquets"
+            echo "3. Désinstaller un paquet"
+            echo "4. Rechercher un paquet"
+            echo "5. Afficher les informations sur un paquet"
+            echo "6. Réinstaller un paquet"
+            echo "7. Aide"
+            echo "8. Sauvegarder la liste des paquets installés"
+            echo "9. Mettre à jour la liste des paquets"
+            echo "10. Afficher les paquets installés"
+            echo "11. Nettoyer les paquets inutilisés"
+            echo "12. Restaurer la liste des paquets à partir d'une sauvegarde"
+            echo "13. Créer un répertoire de travail"
+            echo "14. Consulter la documentation"
+            read -p "Entrez le numéro de la fonctionnalité : " feature_number
+
+            case $feature_number in
+                1)
+                    echo "Installer un paquet : Cette fonctionnalité vous permet d'installer des paquets logiciels disponibles dans les dépôts de Termux. Vous pouvez installer un ou plusieurs paquets à la fois en utilisant leurs noms."
+                    ;;
+                2)
+                    echo "Mettre à jour les paquets : Cela permet de mettre à jour tous les paquets installés sur votre système à leurs dernières versions stables. C'est une bonne pratique de maintenir votre système à jour."
+                    ;;
+                3)
+                    echo "Désinstaller un paquet : Cette option supprime un paquet installé de votre système. Cela peut être utile pour libérer de l'espace ou si vous n'avez plus besoin d'un logiciel."
+                    ;;
+                4)
+                    echo "Rechercher un paquet : Cette fonctionnalité vous permet de rechercher des paquets disponibles dans les dépôts en fonction de votre requête. Cela vous aide à trouver des logiciels spécifiques."
+                    ;;
+                5)
+                    echo "Afficher les informations sur un paquet : Cela vous donne des détails sur un paquet spécifique, y compris sa version, sa description et d'autres informations pertinentes."
+                    ;;
+                6)
+                    echo "Réinstaller un paquet : Cela permet de réinstaller un paquet déjà installé, ce qui peut être utile si vous rencontrez des problèmes avec un paquet existant."
+                    ;;
+                7)
+                    echo "Aide : Cette option fournit des informations détaillées sur l'utilisation du bot et des fonctionnalités disponibles."
+                    ;;
+                8)
+                    echo "Sauvegarder la liste des paquets installés : Cela enregistre la liste des paquets installés sur votre système dans un fichier pour référence future."
+                    ;;
+                9)
+                    echo "Mettre à jour la liste des paquets : Cette fonctionnalité met à jour la liste des paquets disponibles à partir des dépôts, ce qui vous permet d'accéder aux dernières versions."
+                    ;;
+                10)
+                    echo "Afficher les paquets installés : Cela montre la liste des paquets actuellement installés sur votre système."
+                    ;;
+                11)
+                    echo "Nettoyer les paquets inutilisés : Cela supprime les paquets qui ne sont plus nécessaires et libère de l'espace."
+                    ;;
+                12)
+                    echo "Restaurer la liste des paquets : Cela vous permet de restaurer les paquets à partir d'un fichier de sauvegarde, ce qui est utile pour récupérer des installations précédentes."
+                    ;;
+                13)
+                    echo "Créer un répertoire de travail : Cela crée un répertoire où vous pouvez gérer vos installations et fichiers de log."
+                    ;;
+                14)
+                    echo "Consulter la documentation : Cela vous permet d'accéder à des ressources en ligne pour résoudre les problèmes d'installation."
+                    ;;
+                *)
+                    echo "Numéro de fonctionnalité invalide."
+                    ;;
+            esac
+            ;;
+        17)
+            run_custom_script  # Exécuter un script d'installation personnalisé
+            ;;
+        18)
+            display_modification_history  # Afficher l'historique des modifications
+            ;;
+        19)
+            echo "Téléchargement de la dernière version du bot..."
+            wget -O ~/install_bot.sh https://example.com/path/to/your/script.sh
+            chmod +x ~/install_bot.sh
+            echo "Mise à jour terminée. Vous pouvez exécuter le bot avec ~/install_bot.sh."
+            ;;
+        20)
+            save_package_configuration  # Sauvegarder la configuration d'un paquet
+            ;;
+        21)
+            restore_package_configuration  # Restaurer la configuration d'un paquet
+            ;;
+        22)
+            echo "Journal d'activité :"
+            cat "$ACTIVITY_LOG"
+            ;;
+        23)
+            change_language
+            ;;
+        24)
+            display_all_packages  # Afficher tous les paquets installables
+            ;;
+        25)
+            check_security_updates  # Vérifier les mises à jour de sécurité
+            ;;
+        26)
+            echo -e "${YELLOW}Au revoir !${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Option invalide. Veuillez réessayer.${NC}"
+            ;;
+    esac
+done
+
+
+
